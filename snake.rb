@@ -1,3 +1,5 @@
+#todo: Making snake re-appear when going off-screen
+
 require 'ruby2d'
 
 set background: 'fuchsia'
