@@ -1,44 +1,38 @@
-#todo: Making snake re-appear when going off-screen
-
 require 'ruby2d'
 
 set background: 'fuchsia'
 set fps_cap: 20
 
-# width = 640 / 20 = 32
-# height = 480 / 20 = 24
-
-GRID_SIZE = 20
+SQUARE_SIZE = 20
+GRID_WIDTH = Window.width / SQUARE_SIZE
+GRID_HEIGHT = Window.height / SQUARE_SIZE
 
 class Snake
   attr_writer :direction
 
-  # Positions for squares later on, based on x, y values
   def initialize
-    @positions = [[2, 0], [2, 1], [2, 2], [2, 3]] # Straight line for snake
+    @positions = [[2, 0], [2, 1], [2, 2], [2 ,3]]
     @direction = 'down'
+    @growing = false
   end
 
-  # Draws squares for snake
   def draw
     @positions.each do |position|
-      Square.new(x: position[0] * GRID_SIZE, y: position[1] * GRID_SIZE, size: GRID_SIZE - 1, color: 'lime')
+      Square.new(x: position[0] * SQUARE_SIZE, y: position[1] * SQUARE_SIZE, size: SQUARE_SIZE - 1, color: 'green')
     end
   end
 
-  # Moves the snake
+  def grow
+    @growing = true
+  end
+
   def move
-    @positions.shift # Removes [2, 0]
-    case @direction
-    when 'down'
-      @positions.push([head[0], head[1] + 1])
-    when 'up'
-      @positions.push([head[0], head[1] - 1])
-    when 'left'
-      @positions.push([head[0] - 1, head[1]])
-    when 'right'
-      @positions.push([head[0] + 1, head[1]])
+    if !@growing
+      @positions.shift
     end
+
+    @positions.push(next_position)
+    @growing = false
   end
 
   def can_change_direction_to?(new_direction)
@@ -50,22 +44,104 @@ class Snake
     end
   end
 
+  def x
+    head[0]
+  end
+
+  def y
+    head[1]
+  end
+
+  def next_position
+    if @direction == 'down'
+      new_coords(head[0], head[1] + 1)
+    elsif @direction == 'up'
+      new_coords(head[0], head[1] - 1)
+    elsif @direction == 'left'
+      new_coords(head[0] - 1, head[1])
+    elsif @direction == 'right'
+      new_coords(head[0] + 1, head[1])
+    end
+  end
+
+  def hit_itself?
+    @positions.uniq.length != @positions.length
+  end
+
   private
+
+  def new_coords(x, y)
+    [x % GRID_WIDTH, y % GRID_HEIGHT]
+  end
 
   def head
     @positions.last
   end
-
 end
 
-snake = Snake.new # Instantiation of object
-snake.draw # Method call
+class Game
+  def initialize
+    @ball_x = 10
+    @ball_y = 10
+    @score = 0
+    @finished = false
+  end
 
-# Runs for each frame that's shown on the screen
+  def draw
+    Square.new(x: @ball_x * SQUARE_SIZE, y: @ball_y * SQUARE_SIZE, size: SQUARE_SIZE, color: 'yellow')
+    Text.new(text_message, color: 'green', x: 10, y: 10, size: 25, z: 1)
+  end
+
+  def snake_hit_ball?(x, y)
+    @ball_x == x && @ball_y == y
+  end
+
+  def record_hit
+    @score += 1
+    @ball_x = rand(Window.width / SQUARE_SIZE)
+    @ball_y = rand(Window.height / SQUARE_SIZE)
+  end
+
+  def finish
+    @finished = true
+  end
+
+  def finished?
+    @finished
+  end
+
+  private
+
+  def text_message
+    if finished?
+      "Game over, Your Score was #{@score}. Press 'R' to restart. "
+    else
+      "Score: #{@score}"
+    end
+  end
+end
+
+snake = Snake.new
+game = Game.new
+
 update do
-  clear # Clear screen
-  snake.move
+  clear
+
+  unless game.finished?
+    snake.move
+  end
+
   snake.draw
+  game.draw
+
+  if game.snake_hit_ball?(snake.x, snake.y)
+    game.record_hit
+    snake.grow
+  end
+
+  if snake.hit_itself?
+    game.finish
+  end
 end
 
 on :key_down do |event|
@@ -73,6 +149,11 @@ on :key_down do |event|
     if snake.can_change_direction_to?(event.key)
       snake.direction = event.key
     end
+  end
+
+  if game.finished? && event.key == 'r'
+    snake = Snake.new
+    game = Game.new
   end
 end
 
